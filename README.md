@@ -1,4 +1,4 @@
-# 🧠 Chunky Slimm
+# Chunky Slimm(https://chunkyslimm.netlify.app)
 
 **A smart KV-cache memory layer that lets small LLMs remember more on less GPU.**
 

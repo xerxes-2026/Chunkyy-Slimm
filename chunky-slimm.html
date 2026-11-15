@@ -1,0 +1,877 @@
+<title>Chunky Slimm</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: app shell. Header + guided-demo rail, then chat (left) beside a tabbed memory dashboard (right); stacks on phones.
+   Palette taken from Team XERXES' architecture diagram: red = GPU/hot, amber = AI decision, blue = cloud, on near-black. */
+:root{
+  --bg:#0b0b0e; --surface:#131317; --raised:#1a1a20; --sunk:#0f0f12;
+  --line:#2a2a33; --line-soft:#202027;
+  --fg:#eeeef3; --muted:#a0a0ae; --faint:#6c6c7a;
+  --hot:#ee3449; --hot-soft:rgba(238,52,73,.14); --hot-line:rgba(238,52,73,.55);
+  --ai:#f5a93b; --ai-soft:rgba(245,169,59,.13); --ai-line:rgba(245,169,59,.55);
+  --cloud:#4790ff; --cloud-soft:rgba(71,144,255,.13); --cloud-line:rgba(71,144,255,.55);
+  --ok:#3fcf8e; --ok-soft:rgba(63,207,142,.13);
+  --vault:#b52a40; --vault-bg:#1e0e12;
+  --f-display:"Poppins",ui-sans-serif,system-ui,sans-serif;
+  --f-body:"DM Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --r:10px; --r-sm:6px;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--ai);outline-offset:2px}
+.mono{font-family:var(--f-mono)}
+.app{display:flex;flex-direction:column;height:100%;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:14px;gap:12px;max-width:1500px;margin:0 auto}
+
+/* Header */
+.top{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.brand{display:flex;flex-direction:column;gap:2px;margin-right:auto}
+.brand h1{font-family:var(--f-display);font-weight:800;font-size:26px;letter-spacing:-.02em;margin:0;line-height:1}
+.brand h1 i{color:var(--hot);font-style:normal}
+.brand .sub{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.brand .sub b{color:var(--hot);font-weight:600}
+.ctrl{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctrl label{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+select{background:var(--raised);border:1px solid var(--line);border-radius:var(--r-sm);padding:7px 10px;font-size:13px}
+.seg{display:inline-flex;background:var(--sunk);border:1px solid var(--line);border-radius:999px;padding:3px}
+.seg button{border:0;background:none;padding:6px 12px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--hot);color:#fff}
+.seg button[data-mode="full"][aria-pressed="true"]{background:var(--raised);color:var(--fg);box-shadow:inset 0 0 0 1px var(--line)}
+.pillstat{display:flex;gap:14px;align-items:baseline;font-family:var(--f-mono);font-size:12px;color:var(--muted);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:6px 14px}
+.pillstat b{font-size:14px;color:var(--fg);font-variant-numeric:tabular-nums}
+.pillstat .r{color:var(--hot)}
+
+/* Demo rail */
+.rail{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:10px 12px;flex-wrap:wrap}
+.rail .lab{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.12em;color:var(--ai);text-transform:uppercase;white-space:nowrap}
+.steps{display:flex;gap:6px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.steps::-webkit-scrollbar{display:none}
+.step{display:flex;align-items:center;gap:7px;border:1px solid var(--line-soft);background:var(--sunk);border-radius:999px;padding:5px 11px 5px 5px;font-size:12px;color:var(--muted);white-space:nowrap}
+.step .n{width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-mono);font-size:11px;background:var(--raised);color:var(--muted)}
+.step.done{color:var(--fg)}
+.step.done .n{background:var(--ok);color:#06140d}
+.step.now{border-color:var(--ai-line);color:var(--fg);background:var(--ai-soft)}
+.step.now .n{background:var(--ai);color:#1c1204}
+.btn{border:1px solid var(--line);background:var(--raised);border-radius:var(--r-sm);padding:7px 13px;font-size:13px;font-weight:600}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--hot);border-color:var(--hot);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.amber{background:var(--ai);border-color:var(--ai);color:#1c1204}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.sm{padding:4px 9px;font-size:12px}
+.btn.ghost{background:none}
+.btn.danger{color:var(--hot);border-color:var(--hot-line);background:none}
+
+/* Main */
+.main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:12px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.ph{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line-soft)}
+.ph h2{font-family:var(--f-display);font-size:14px;font-weight:600;margin:0}
+.ph .meta{margin-left:auto;font-family:var(--f-mono);font-size:11px;color:var(--faint)}
+
+/* Chat */
+.feed{flex:1;overflow-y:auto;padding:16px 14px;display:flex;flex-direction:column;gap:12px}
+.earlier{align-self:center;font-family:var(--f-mono);font-size:11px;color:var(--faint);border:1px dashed var(--line);border-radius:999px;padding:4px 12px}
+.msg{max-width:88%;display:flex;flex-direction:column;gap:5px}
+.msg.u{align-self:flex-end;align-items:flex-end}
+.msg.b{align-self:flex-start}
+.bub{padding:9px 13px;border-radius:14px;font-size:14px;overflow-wrap:anywhere}
+.u .bub{background:var(--raised);border:1px solid var(--line);border-bottom-right-radius:4px}
+.b .bub{background:transparent;border:1px solid var(--line-soft);border-bottom-left-radius:4px}
+.who{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint)}
+.tags{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+.tag{font-family:var(--f-mono);font-size:10.5px;padding:2px 7px;border-radius:4px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.tag.hot{border-color:var(--hot-line);color:var(--hot);background:var(--hot-soft)}
+.tag.ai{border-color:var(--ai-line);color:var(--ai);background:var(--ai-soft)}
+.tag.cloud{border-color:var(--cloud-line);color:var(--cloud);background:var(--cloud-soft)}
+.tag.vault{border-color:var(--vault);color:#ff8a9a;background:var(--vault-bg)}
+.tag.drop{border-style:dashed;color:var(--faint)}
+.tag.ok{border-color:rgba(63,207,142,.5);color:var(--ok);background:var(--ok-soft)}
+.trace{font-family:var(--f-mono);font-size:10.5px;color:var(--faint);line-height:1.55}
+.trace b{color:var(--muted);font-weight:500}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);padding:11px 13px;display:flex;flex-direction:column;gap:6px}
+.card.hotc{border-color:var(--hot-line)}
+.card.vaultc{border-color:var(--vault);background:var(--vault-bg)}
+.card.cloudc{border-color:var(--cloud-line)}
+.card h4{margin:0;font-family:var(--f-display);font-size:13.5px;font-weight:600}
+.facts{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px}
+.facts li{display:flex;gap:8px;font-size:13.5px}
+.facts li span{color:var(--muted);min-width:64px}
+.evt{align-self:center;max-width:94%;width:100%}
+.recall{display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;font-size:12.5px;align-items:center}
+.recall .m{font-family:var(--f-mono);font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+.ic{width:16px;height:16px;border-radius:50%;display:inline-grid;place-items:center;font-size:10px;font-weight:700}
+.ic.y{background:var(--ok);color:#06140d}.ic.p{background:var(--ai);color:#1c1204}.ic.n{background:var(--line);color:var(--muted)}
+.thumb{width:100%;max-width:240px;aspect-ratio:4/3;border-radius:6px;background:linear-gradient(180deg,#2a1c4a 0%,#c4405a 48%,#f5a93b 62%,#17365e 63%,#0c2440 100%);position:relative;overflow:hidden}
+.thumb::after{content:"";position:absolute;left:50%;top:44%;width:34px;height:34px;margin-left:-17px;border-radius:50%;background:#ffd38a;box-shadow:0 0 30px #ffb45a}
+.thumb.vid{background:linear-gradient(160deg,#0e2a3d,#1f6b6b 55%,#e2c27a)}
+.thumb.vid::after{width:0;height:0;border-radius:0;background:none;box-shadow:none;border-left:22px solid rgba(255,255,255,.85);border-top:14px solid transparent;border-bottom:14px solid transparent;margin-left:-8px;top:38%}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb.small{max-width:120px}
+.compose{border-top:1px solid var(--line-soft);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid var(--line);background:var(--sunk);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--muted)}
+.chip:hover{color:var(--fg);border-color:var(--faint)}
+.chip .k{font-family:var(--f-mono);color:var(--ai)}
+.inrow{display:flex;gap:8px}
+.inrow input{flex:1;min-width:0;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-sm);padding:10px 12px;font-size:14px}
+.inrow input:focus{border-color:var(--faint);outline:none}
+.hint{font-size:11.5px;color:var(--faint)}
+
+/* Dashboard */
+.tabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line-soft);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{border:0;background:none;padding:9px 12px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--hot)}
+.tab .cnt{font-family:var(--f-mono);font-size:10.5px;color:var(--faint);margin-left:4px}
+.dash{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:16px}
+.sec{display:flex;flex-direction:column;gap:10px}
+.sec h3{margin:0;font-family:var(--f-mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:500;display:flex;gap:8px;align-items:center}
+.sec h3 .no{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:4px;background:var(--hot);color:#fff;font-size:10.5px;letter-spacing:0}
+.sec h3 .x{color:var(--faint);text-transform:none;letter-spacing:0;margin-left:auto}
+.note{font-size:12px;color:var(--faint)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.box{border:1px solid var(--line);background:var(--sunk);border-radius:var(--r);padding:13px 14px;min-width:0}
+.big{font-family:var(--f-display);font-weight:700;font-size:30px;line-height:1.1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.big small{font-size:14px;color:var(--muted);font-weight:500;margin-left:3px}
+.klabel{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:2px;display:inline-block}
+.box.on{border-color:var(--hot-line);background:linear-gradient(180deg,var(--hot-soft),transparent 70%)}
+.box.onfull{border-color:var(--faint)}
+.meter{height:8px;border-radius:99px;background:var(--line-soft);overflow:hidden;margin-top:10px}
+.meter i{display:block;height:100%;border-radius:99px;background:var(--hot);transition:width .5s ease}
+.meter.grey i{background:var(--faint)}
+.subline{font-size:12px;color:var(--muted);margin-top:6px}
+.stack{display:flex;height:26px;border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.stack div{height:100%;transition:flex-grow .5s ease;min-width:0}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.legend span{display:flex;align-items:center;gap:6px}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-family:var(--f-mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--faint);font-weight:500;text-align:left;padding:7px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line-soft);font-variant-numeric:tabular-nums;vertical-align:middle}
+td.n,th.n{text-align:right}
+tr.tot td{font-weight:600;border-bottom:0}
+.cap{display:grid;grid-template-columns:auto 1fr auto;gap:8px 12px;align-items:center;font-size:12.5px}
+.cap .bar{height:14px;border-radius:3px;background:var(--line-soft);overflow:hidden}
+.cap .bar i{display:block;height:100%;transition:width .5s ease}
+.cap .v{font-family:var(--f-mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+
+/* topics */
+.topic{border:1px solid var(--line);border-radius:var(--r);background:var(--sunk);overflow:hidden}
+.topic.locked{border-color:var(--ai-line)}
+.th{display:flex;align-items:center;gap:10px;padding:10px 12px;flex-wrap:wrap}
+.th h4{margin:0;font-family:var(--f-display);font-size:14px;font-weight:600}
+.th .acts{margin-left:auto;display:flex;gap:6px}
+.gate{padding:0 12px 10px;display:flex;gap:6px;flex-wrap:wrap}
+.gate .fact{font-size:12px;background:var(--raised);border:1px solid var(--line-soft);border-radius:4px;padding:2px 7px}
+.gate .fact span{color:var(--faint)}
+.chunks{border-top:1px solid var(--line-soft);display:flex;flex-direction:column}
+.ck{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line-soft);font-size:12.5px}
+.ck:last-child{border-bottom:0}
+.ck .t{color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ck .tk{font-family:var(--f-mono);font-size:11px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+.empty{border:1px dashed var(--line);border-radius:var(--r);padding:18px;text-align:center;color:var(--faint);font-size:13px}
+
+/* store ladder */
+.ladder{display:flex;flex-direction:column;gap:8px}
+.rung{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:12px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--sunk)}
+.rung .nm{font-family:var(--f-mono);font-weight:600;font-size:12.5px}
+.rung .d{font-size:12px;color:var(--muted)}
+.rung .v{font-family:var(--f-mono);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+.rung.gpu{border-color:var(--hot-line)} .rung.gpu .nm{color:var(--hot)}
+.rung.ram .nm{color:var(--ai)}
+.rung.disk .nm{color:var(--muted)}
+.rung.cloud{border-color:var(--cloud-line)} .rung.cloud .nm{color:var(--cloud)}
+.rung:nth-child(1){margin-left:30%} .rung:nth-child(2){margin-left:20%} .rung:nth-child(3){margin-left:10%}
+.flash{animation:flash 1.2s ease}
+@keyframes flash{0%{box-shadow:0 0 0 2px var(--ai)}100%{box-shadow:0 0 0 0 transparent}}
+.log{display:flex;flex-direction:column;gap:4px;font-family:var(--f-mono);font-size:11.5px;color:var(--muted);max-height:180px;overflow-y:auto}
+.log div{display:flex;gap:10px}
+.log .tm{color:var(--faint);min-width:42px}
+
+/* pipeline */
+.pipe{display:flex;flex-direction:column;gap:14px}
+.prow{display:flex;gap:8px;align-items:stretch;flex-wrap:wrap}
+.node{flex:1 1 110px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--sunk);transition:all .35s ease;min-width:0}
+.node b{display:block;font-size:12.5px;font-family:var(--f-display);font-weight:600}
+.node span{display:block;font-size:11px;color:var(--faint)}
+.node.lit{background:var(--raised)}
+.node.lit.h{border-color:var(--hot);box-shadow:0 0 0 1px var(--hot) inset}
+.node.lit.a{border-color:var(--ai);box-shadow:0 0 0 1px var(--ai) inset}
+.node.lit.c{border-color:var(--cloud);box-shadow:0 0 0 1px var(--cloud) inset}
+.node.lit.v{border-color:var(--vault);background:var(--vault-bg)}
+.node.lit.d{border-style:dashed;border-color:var(--muted)}
+.node.lit.n{border-color:var(--muted)}
+.arrow{align-self:center;color:var(--faint);font-family:var(--f-mono)}
+.tracebox{border-left:2px solid var(--ai);padding:4px 0 4px 12px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.tracebox b{color:var(--fg);font-weight:600}
+
+/* vault */
+.vitem{display:flex;align-items:center;gap:12px;border:1px solid var(--vault);background:var(--vault-bg);border-radius:8px;padding:10px 12px;flex-wrap:wrap}
+.vitem .s{font-family:var(--f-mono);font-size:14px;letter-spacing:.08em}
+.vitem .l{font-weight:600}
+.vitem .when{font-size:11.5px;color:var(--faint)}
+.lock{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--vault);flex:none}
+.keyrow{display:flex;gap:8px;flex-wrap:wrap}
+.keyrow input{flex:1;min-width:140px;background:var(--sunk);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px}
+
+/* compare */
+.cmp td,.cmp th{text-align:center;padding:7px 4px}
+.cmp td:first-child,.cmp th:first-child{text-align:left;font-weight:600;white-space:nowrap;padding-left:8px}
+.cmp tr.us td{background:var(--hot-soft)}
+.cmp tr.us td:first-child{color:var(--hot)}
+.cmp th{font-size:9.5px;letter-spacing:.04em;line-height:1.3;vertical-align:bottom}
+.target{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line-soft);font-size:13px}
+.target:last-child{border-bottom:0}
+.weeks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.wk{border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--sunk);font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:6px}
+.wk b{font-family:var(--f-mono);color:var(--ai);font-size:11px;letter-spacing:.1em}
+.wk em{font-style:normal;color:var(--fg);font-size:11.5px;border-top:1px solid var(--line-soft);padding-top:6px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%) translateY(20px);background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:9px 14px;font-size:13px;opacity:0;transition:all .3s ease;pointer-events:none;z-index:20;max-width:calc(100% - 32px)}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.media-menu{display:flex;gap:6px;flex-wrap:wrap}
+
+@media (max-width:980px){
+  html,body{height:auto}
+  .app{height:auto}
+  .main{grid-template-columns:minmax(0,1fr)}
+  .chatp{height:72vh;min-height:460px}
+  .dashp .dash{overflow:visible}
+  .dashp{overflow:visible}
+}
+@media (max-width:560px){
+  .grid2{grid-template-columns:minmax(0,1fr)}
+  .weeks{grid-template-columns:1fr 1fr}
+  .rung:nth-child(n){margin-left:0}
+  .rung{grid-template-columns:56px minmax(0,1fr)}
+  .rung .v{grid-column:1/-1;text-align:left}
+  .pillstat{display:none}
+  .rail .steps{order:3;flex-basis:100%}
+  .rail .lab{margin-right:auto}
+  .msg{max-width:96%}
+  .ck{grid-template-columns:auto minmax(0,1fr) auto}
+  .ck .tk{display:none}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Chunky Slimm<i>.</i></h1>
+      <div class="sub"><b>Team XERXES</b> · Perceptron Hackathon · Problem 2 · prototype</div>
+    </div>
+    <div class="pillstat" id="pillstat"></div>
+    <div class="ctrl">
+      <label for="model">Model</label>
+      <select id="model">
+        <option value="l1b">Llama 3.2 1B · T4</option>
+        <option value="q15">Qwen 2.5 1.5B · T4</option>
+        <option value="l3b">Llama 3.2 3B · T4</option>
+      </select>
+      <div class="seg" role="group" aria-label="Cache mode">
+        <button id="m-slimm" data-mode="slimm" aria-pressed="true">Chunky Slimm</button>
+        <button id="m-full" data-mode="full" aria-pressed="false">Full cache</button>
+      </div>
+    </div>
+  </header>
+
+  <section class="rail" aria-label="Guided demo">
+    <span class="lab">3-min demo</span>
+    <div class="steps" id="steps"></div>
+    <button class="btn amber" id="next">Run step 1</button>
+    <button class="btn ghost sm" id="reset" title="Start the chat over">Reset</button>
+  </section>
+
+  <div class="main">
+    <section class="panel chatp" aria-label="Chat">
+      <div class="ph"><h2>Chat</h2><span class="meta" id="chatmeta"></span></div>
+      <div class="feed" id="feed"></div>
+      <div class="compose">
+        <div class="chips" id="chips">
+          <button class="chip" data-fill="/pin "><span class="k">/pin</span> keep in full detail</button>
+          <button class="chip" data-fill="/lock "><span class="k">/lock</span> never squeeze</button>
+          <button class="chip" data-fill="/seal "><span class="k">/seal</span> private vault</button>
+          <button class="chip" data-fill="/forget "><span class="k">/forget</span> delete a topic</button>
+          <button class="chip" id="mediaBtn">Attach photo or video</button>
+          <button class="chip" id="rulebookBtn">Paste shared rulebook</button>
+        </div>
+        <div class="media-menu" id="mediaMenu" hidden>
+          <button class="btn sm" id="sPhoto">Sample photo</button>
+          <button class="btn sm" id="sVideo">Sample video</button>
+          <label class="btn sm" for="file">From this device</label>
+          <input type="file" id="file" accept="image/*,video/*" hidden>
+        </div>
+        <form class="inrow" id="form">
+          <input id="input" autocomplete="off" placeholder="Message, or ask: When and where is my DBMS exam?">
+          <button class="btn primary" type="submit">Send</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel dashp" aria-label="Memory dashboard">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="dash" id="dash"></div>
+    </section>
+  </div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+const MODELS={
+  l1b:{name:'Llama 3.2 1B',kv:32768,freeGB:11.3},
+  q15:{name:'Qwen 2.5 1.5B',kv:28672,freeGB:10.6},
+  l3b:{name:'Llama 3.2 3B',kv:114688,freeGB:7.1}
+};
+const REGION='Mumbai (ap-south-1)';
+const VAULT_KEY='xerxes';
+const SHARED_USERS=100;
+const TOPIC_KEYS={
+  'DBMS exam':['dbms','exam','database','sql','midsem','endsem'],
+  'Goa trip':['trip','goa','flight','hotel','beach','sunset','photo','video','reel','vacation'],
+  'Hackathon':['hackathon','techfest','rulebook','rules','finals','judges','perceptron','team'],
+  'Coursework':['assignment','lab','lecture','class','quiz','os lab'],
+};
+const MON='(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Sept|Oct|Nov|Dec)[a-z]*\\.?';
+const RX={
+  date:new RegExp('\\b(\\d{1,2}(?:st|nd|rd|th)?\\s+'+MON+'|'+MON+'\\s+\\d{1,2}(?:st|nd|rd|th)?)\\b','i'),
+  time:/\b(\d{1,2}(?::\d{2})?\s?(?:am|pm))\b/i,
+  place:/\b((?:Hall|Room|Lab|Block|Gate|Terminal)\s+[A-Z0-9][A-Z0-9-]*)\b/i,
+  flight:/\b([0-9A-Z]{2}-\d{3,4})\b/,
+  secret:/(password|passcode|otp|locker code|pin code|card number|cvv|\b\d{4}[- ]\d{4}[- ]\d{4}[- ]\d{4}\b)/i,
+  filler:/^(ok|okay|k|lol|haha+|haha ok|thanks|thank you|thx|cool|nice|hmm+|yes|no|sure|great|got it|wow)[!. ]*$/i,
+  question:/\?\s*$|^(what|when|where|who|which|show|how|did|do|is|can|remind)\b/i
+};
+let S, uid=0, toastT;
+const $=s=>document.querySelector(s);
+const id=()=>++uid;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toks=t=>Math.max(3,Math.round(t.trim().split(/\s+/).length*1.35)+2);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function hash(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)}return (h>>>0).toString(16).padStart(8,'0')}
+function fmtMB(bytes){const mb=bytes/1048576;if(mb>=1024)return (mb/1024).toFixed(2)+' GB';if(mb>=10)return Math.round(mb)+' MB';if(mb>=1)return mb.toFixed(1)+' MB';const kb=bytes/1024;return (kb>=10?Math.round(kb):kb.toFixed(1))+' KB'}
+function clock(){const m=S.t;const h=9+Math.floor(m/60);return String(h%24).padStart(2,'0')+':'+String(m%60).padStart(2,'0')}
+
+/* ---------- state ---------- */
+function seed(){
+  uid=0;
+  S={model:'l1b',mode:'slimm',tab:'memory',t:4,step:0,running:false,
+     topics:{},chunks:[],vault:[],common:[],media:[],msgs:[],log:[],
+     trace:null,earlier:15200,unlockedUntil:0};
+  const T=(name,facts)=>{S.topics[name]={name,facts:facts||{},locked:false,pinned:false,snaps:1,hash:hash(name+'0'),created:0}};
+  T('General');T('Goa trip',{Date:'Dec 12',Flight:'6E-2241',Time:'6:40 AM',Hotel:'Casa Azul, Baga'});
+  T('Hackathon',{Event:'Techfest finals',Place:'IIT Bombay',Date:'Dec 20'});
+  T('Coursework',{Assignment:'OS lab 4',Due:'Nov 10'});
+  const C=(topic,kind,tokens,text,tier,used)=>S.chunks.push({id:id(),topic,kind,tokens,text,tier:tier||(kind==='box'?'ram':kind==='filler'?'dropped':'gpu'),used:used||0,hits:0,pinned:kind==='pinned'});
+  C('General','pinned',480,'System prompt and your saved preferences');
+  C('General','filler',3100,'Small talk, greetings, "ok", "lol"');
+  C('General','box',300,'Asked for help formatting a CV');
+  C('Goa trip','gateway',300,'Trip gateway: dates, flight, hotel');
+  C('Goa trip','box',2200,'Planning the Goa itinerary, day by day');
+  C('Goa trip','box',1500,'Budget split between four friends');
+  C('Hackathon','gateway',400,'Hackathon gateway: event, venue, date');
+  C('Hackathon','box',1800,'Brainstorm on KV cache compression ideas');
+  C('Coursework','gateway',450,'Coursework gateway: OS lab 4 due Nov 10');
+  C('Coursework','box',2600,'Explained page replacement algorithms','disk');
+  C('Coursework','filler',2900,'Repeated pasted error logs');
+  S.media.push({id:id(),topic:'Goa trip',name:'beach-sunset.jpg',kind:'photo',orig:4.8*1048576,comp:3.3*1048576,fmt:'lossless WebP',caption:'Sunset at Baga beach, four friends',src:null});
+  S.msgs.push({r:'u',text:'Flight to Goa is 6E-2241 on Dec 12 at 6:40 AM. Hotel is Casa Azul, Baga.',tags:[['hot','Keep hot'],['ai','Goa trip'],['','Date · Flight · Time']]});
+  S.msgs.push({r:'b',html:'Saved under <b>Goa trip</b>: Dec 12, flight 6E-2241 at 6:40 AM, Casa Azul in Baga.',trace:'gateway updated · 31 tokens fp16 · backup snapshot taken'});
+  S.msgs.push({r:'u',text:'haha ok',tags:[['drop','Filler · dropped']]});
+  S.msgs.push({r:'e',kind:'media',mid:S.media[0].id});
+  S.msgs.push({r:'b',html:'Got the photo. I keep only a short caption and a thumbnail on the GPU; the full image sits in the cloud until you ask for it.',trace:'compress · 4.8 MB → 3.3 MB lossless WebP · GPU note 3 KB'});
+  addLog('session restored from cloud: 4 topics, no re-processing');
+}
+function addLog(s){S.log.unshift({tm:clock(),s});S.log=S.log.slice(0,40)}
+
+/* ---------- memory model ---------- */
+function M(){return MODELS[S.model]}
+function memSlimm(){
+  const kv=M().kv;let b=0;
+  for(const c of S.chunks){
+    if(c.kind==='pinned'||c.kind==='gateway'||c.pinned)b+=c.tokens*kv;
+    else if(c.kind==='box'){ if(S.topics[c.topic]&&S.topics[c.topic].locked)b+=c.tokens*kv; else if(c.tier==='gpu'||c.tier==='ram')b+=c.tokens*kv/8;}
+  }
+  for(const d of S.common)b+=d.tokens*kv/8/d.users;
+  for(const m of S.media)b+=3072;
+  return b;
+}
+function memFull(){
+  const kv=M().kv;let t=0;
+  for(const c of S.chunks)t+=c.tokens;
+  for(const d of S.common)t+=d.tokens;
+  for(const v of S.vault)t+=v.tokens;
+  for(const m of S.media)t+=m.kind==='photo'?576:2304;
+  return t*kv;
+}
+function totalTokens(){let t=0;for(const c of S.chunks)t+=c.tokens;for(const d of S.common)t+=d.tokens;for(const v of S.vault)t+=v.tokens;return t}
+function shares(){
+  const kv=M().kv;const r={pinned:0,gateway:0,box:0,cold:0,filler:0,common:0};
+  for(const c of S.chunks){
+    if(c.kind==='pinned'||c.pinned)r.pinned+=c.tokens;
+    else if(c.kind==='gateway')r.gateway+=c.tokens;
+    else if(c.kind==='box'){ if(c.tier==='gpu'||c.tier==='ram'||(S.topics[c.topic]&&S.topics[c.topic].locked))r.box+=c.tokens; else r.cold+=c.tokens;}
+    else r.filler+=c.tokens;
+  }
+  for(const d of S.common)r.common+=d.tokens;
+  return r;
+}
+
+/* ---------- classification ---------- */
+function topicOf(text){
+  const l=text.toLowerCase();let best=null,score=0;
+  for(const[k,words]of Object.entries(TOPIC_KEYS)){const s=words.filter(w=>l.includes(w)).length;if(s>score){score=s;best=k}}
+  return best||'General';
+}
+function ensureTopic(name){if(!S.topics[name]){S.topics[name]={name,facts:{},locked:false,pinned:false,snaps:0,hash:hash(name),created:S.t};addLog('new topic gateway: '+name)}return S.topics[name]}
+function extract(text){
+  const f={};let m;
+  if(m=text.match(RX.date))f[/due|deadline|submit/i.test(text)?'Due':'Date']=cap(m[1]);
+  if(m=text.match(RX.time))f.Time=m[1].toUpperCase().replace(/\s?(AM|PM)/,' $1');
+  if(m=text.match(RX.place))f.Place=cap(m[1]);
+  if(m=text.match(RX.flight))f.Flight=m[1];
+  return f;
+}
+function cap(s){return s.charAt(0).toUpperCase()+s.slice(1)}
+
+/* ---------- message handling ---------- */
+function bot(html,trace,extra){S.msgs.push(Object.assign({r:'b',html,trace},extra||{}))}
+function lit(nodes,steps){S.trace={nodes:new Set(nodes),steps}}
+
+function handle(raw){
+  const text=raw.trim();if(!text)return;
+  S.t+=1;
+  const cmd=text.match(/^\/(seal|pin|lock|unlock|forget|help)\b\s*(.*)$/i);
+  if(cmd)return command(cmd[1].toLowerCase(),cmd[2].trim(),text);
+  if(RX.secret.test(text)&&!RX.question.test(text))return seal(text,text,true);
+  if(RX.question.test(text))return fetchQ(text);
+  statement(text);
+}
+
+function statement(text){
+  const tk=toks(text);
+  if(RX.filler.test(text)||(tk<6&&!Object.keys(extract(text)).length)){
+    S.chunks.push({id:id(),topic:'General',kind:'filler',tokens:tk,text,tier:'dropped',used:S.t,hits:0});
+    S.msgs.push({r:'u',text,tags:[['drop','Filler · dropped']]});
+    lit(['chatin','mainpoints','sorter','filler'],[['File','Sorter marked it as filler'],['Store','Dropped from cache; full text kept in cloud'],['GPU',fmtMB(0)+' added']]);
+    addLog('filler dropped ('+tk+' tok)');
+    return;
+  }
+  const topic=topicOf(text);const T=ensureTopic(topic);const f=extract(text);
+  const hasFacts=Object.keys(f).length>0;
+  Object.assign(T.facts,f);
+  const kind=hasFacts?'gateway':(tk>40?'box':'unclear');
+  S.chunks.push({id:id(),topic,kind:kind==='unclear'?'box':kind,tokens:tk,text,tier:kind==='gateway'?'gpu':'ram',used:S.t,hits:0,pinned:false});
+  T.snaps++;T.hash=hash(topic+S.t);
+  const tags=[];
+  if(kind==='gateway')tags.push(['hot','Keep hot']);else if(kind==='box')tags.push(['','Box it']);else tags.push(['cloud','Unclear · kept in cloud']);
+  tags.push(['ai',topic]);
+  if(hasFacts)tags.push(['',Object.keys(f).join(' · ')]);
+  S.msgs.push({r:'u',text,tags});
+  const kv=M().kv;
+  if(hasFacts){
+    const list=Object.entries(f).map(([k,v])=>k+' '+esc(v)).join(', ');
+    bot('Noted. Filed under <b>'+esc(topic)+'</b>: '+list+'.', S.mode==='slimm'?'main points → gateway · '+tk+' tok fp16 · '+fmtMB(tk*kv)+' · snapshot #'+T.snaps:'full cache · '+tk+' tok fp16 · '+fmtMB(tk*kv));
+  } else {
+    bot('Got it. I boxed the main points under <b>'+esc(topic)+'</b>.', S.mode==='slimm'?'box · 2-bit · '+fmtMB(tk*kv/8)+' instead of '+fmtMB(tk*kv):'full cache · '+tk+' tok fp16');
+  }
+  lit(['chatin','mainpoints','sorter',kind==='gateway'?'hot':kind==='box'?'box':'unclear',kind==='gateway'?'gpu':'ram','smart','safety'],
+    [['File','Labelled facts: '+(hasFacts?Object.keys(f).join(', '):'none')+'; topic '+topic],
+     ['Sorter',kind==='gateway'?'Needed now, so it stays hot in full detail':kind==='box'?'Useful later, so it goes in a 2-bit box':'Unclear; fetch if useful, else clear'],
+     ['Store',(kind==='gateway'?'GPU':'RAM')+' in nearest region · snapshot taken · hash '+T.hash]]);
+  addLog((kind==='gateway'?'gateway':'box')+' + '+topic+' ('+tk+' tok)');
+}
+
+function seal(label,secret,auto){
+  const lbl=(label.split(/[:=]/)[0]||'Sealed item').replace(/^(my|the)\s+/i,'').slice(0,40);
+  const val=(secret.split(/[:=]/).slice(1).join(':')||secret).trim();
+  S.vault.push({id:id(),label:cap(lbl.trim()),secret:val,tokens:toks(secret),at:clock()});
+  S.msgs.push({r:'u',text:auto?secret.replace(val,'•'.repeat(Math.min(10,val.length))):'/seal '+secret.replace(val,'•'.repeat(Math.min(10,val.length))),tags:[['vault','Sealed · vault'],['drop','0 tokens cached']]});
+  bot((auto?'That looked private, so I sealed it automatically. ':'')+'Sealed in your <b>private vault</b>. It never enters my memory cache, and I can\'t open it. Only you can, with your key.',
+    S.mode==='slimm'?'privacy.py · vault write · AI walled off · cache tokens added: 0':'full cache mode would have cached these '+toks(secret)+' tokens as plain text');
+  lit(['chatin','vault'],[['Privacy',auto?'Regex flagged a secret':'You used /seal'],['Vault','Encrypted with your own key, outside the model'],['Cache','0 tokens added']]);
+  addLog('vault: sealed "'+cap(lbl.trim())+'"');
+}
+
+function command(c,arg,raw){
+  if(c==='help'){S.msgs.push({r:'u',text:raw,tags:[]});bot('Commands: <b>/pin</b> text or topic keeps it in full detail. <b>/lock</b> topic stops it being squeezed. <b>/seal</b> label: secret puts it in your vault. <b>/forget</b> topic deletes the topic and its backup.','');return}
+  if(c==='seal'){if(!arg){toast('Add what to seal, like /seal Locker code: 4417-28');S.t--;return}return seal(arg,arg,false)}
+  const tname=matchTopic(arg);
+  if(c==='forget'){
+    S.msgs.push({r:'u',text:raw,tags:[['hot','Forget']]});
+    if(!tname){bot('I have no topic called "'+esc(arg)+'". Topics: '+Object.keys(S.topics).map(esc).join(', ')+'.','');return}
+    if(S.topics[tname].locked){bot('<b>'+esc(tname)+'</b> is locked. Unlock it first with /unlock '+esc(tname)+'.','');return}
+    const n=S.chunks.filter(x=>x.topic===tname).length, md=S.media.filter(x=>x.topic===tname).length, sn=S.topics[tname].snaps;
+    S.chunks=S.chunks.filter(x=>x.topic!==tname);S.media=S.media.filter(x=>x.topic!==tname);
+    delete S.topics[tname];
+    S.msgs.forEach(m=>{if(m.r==='e'&&m.kind==='media'&&!S.media.find(x=>x.id===m.mid))m.gone=true});
+    bot('Forgot <b>'+esc(tname)+'</b>: '+n+' chunks, '+md+' media file'+(md===1?'':'s')+' and '+sn+' backup snapshot'+(sn===1?'':'s')+' deleted. Other topics are untouched.','scope: this topic only · backup deleted · '+Object.keys(S.topics).length+' topics remain');
+    lit(['gpu','ram','disk','cloud','safety'],[['Forget',tname+' removed from every tier'],['Backup','Snapshots deleted too'],['Check','Other topics and hashes unchanged']]);
+    addLog('/forget '+tname+' · '+n+' chunks + backup deleted');
+    S.tab='storage';return;
+  }
+  if(c==='pin'){
+    S.msgs.push({r:'u',text:raw,tags:[['hot','Pinned']]});
+    if(tname){S.chunks.filter(x=>x.topic===tname).forEach(x=>{if(x.kind==='box'){x.pinned=true;x.tier='gpu'}});S.topics[tname].pinned=true;
+      bot('Pinned <b>'+esc(tname)+'</b>. All of it stays on the GPU in full detail.','pinned topics never get squeezed or dropped');addLog('/pin topic '+tname);}
+    else if(arg){const tk=toks(arg);S.chunks.push({id:id(),topic:topicOf(arg),kind:'pinned',tokens:tk,text:arg,tier:'gpu',used:S.t,hits:0,pinned:true});ensureTopic(topicOf(arg));Object.assign(S.topics[topicOf(arg)].facts,extract(arg));
+      bot('Pinned. I\'ll keep this in full detail for the whole chat.','pinned · '+tk+' tok fp16 · '+fmtMB(tk*M().kv));addLog('/pin note ('+tk+' tok)');}
+    lit(['chatin','hot','gpu'],[['Pin','Kept in full precision on the GPU']]);return;
+  }
+  if(c==='lock'||c==='unlock'){
+    S.msgs.push({r:'u',text:raw,tags:[['ai',c==='lock'?'Locked':'Unlocked']]});
+    if(!tname){bot('Which topic? Try /'+c+' '+esc(Object.keys(S.topics)[1]||'General')+'.','');return}
+    S.topics[tname].locked=c==='lock';
+    bot(c==='lock'?'Locked <b>'+esc(tname)+'</b>. It won\'t be squeezed, moved down a tier, or forgotten until you unlock it.':'Unlocked <b>'+esc(tname)+'</b>. Normal usage-based compression applies again.','');
+    addLog('/'+c+' '+tname);S.tab='topics';return;
+  }
+}
+function matchTopic(arg){if(!arg)return null;const l=arg.toLowerCase();return Object.keys(S.topics).find(k=>k.toLowerCase()===l)||Object.keys(S.topics).find(k=>k.toLowerCase().includes(l)||l.includes(k.toLowerCase().split(' ')[0]))||null}
+
+function fetchQ(text){
+  const l=text.toLowerCase();
+  S.msgs.push({r:'u',text,tags:[['ai','Question']]});
+  // vault guard
+  if(/(locker|password|passcode|otp|pin code|code|card|secret)/.test(l)&&S.vault.length){
+    const v=S.vault.find(v=>l.includes(v.label.toLowerCase().split(' ')[0]))||S.vault[0];
+    S.msgs.push({r:'e',kind:'vault',vid:v.id});
+    lit(['q','scope','vault'],[['Scope','You + '+v.label],['Vault','Item is sealed; vault is never searched'],['Answer','Pointed you to the vault instead']]);
+    addLog('fetch blocked: "'+v.label+'" is sealed');S.tab='vault';return;
+  }
+  const isMedia=/(photo|picture|pic|image|video|reel|clip)/.test(l);
+  const topic=topicOf(text);
+  const T=S.topics[topic];
+  if(!T||(topic==='General'&&!isMedia)){
+    const gone=Object.keys(TOPIC_KEYS).find(k=>TOPIC_KEYS[k].some(w=>l.includes(w)));
+    bot(gone&&!S.topics[gone]?'I have nothing saved about <b>'+esc(gone)+'</b>. It was forgotten, so there\'s nothing to fetch.':'I don\'t have anything saved that matches that.','scope: this user only · 0 boxes matched · nothing invented');
+    lit(['q','scope','match'],[['Scope','This user only'],['Match','No facts matched, so I said so']]);addLog('fetch: no match');return;
+  }
+  // touch boxes: asked → restore up
+  const boxes=S.chunks.filter(c=>c.topic===topic&&c.kind!=='filler');
+  let restored=0;
+  boxes.forEach(c=>{c.hits++;c.used=S.t;if(c.kind==='box'&&c.tier!=='gpu'){c.tier=c.tier==='cloud'?'disk':c.tier==='disk'?'ram':'gpu';restored++}});
+  const matched=Math.min(4,boxes.length);
+  if(isMedia){
+    const md=S.media.filter(m=>m.topic===topic).slice(-1)[0]||S.media.slice(-1)[0];
+    if(md){
+      S.msgs.push({r:'e',kind:'fetchmedia',mid:md.id});
+      lit(['asked','fetchfile','decode','sees','cloudmedia'],[['Asked',text],['Fetch','Exact file from '+REGION],['Decode','Back to normal form'],['Model','Sees it for this turn only, then it leaves the GPU']]);
+      addLog('media fetched: '+md.name+' · hash ok');S.tab='pipeline';return;
+    }
+  }
+  let keys=Object.keys(T.facts);
+  const want=[];
+  if(/\bwhen\b|date|day|time/.test(l))want.push('Date','Due','Time');
+  if(/\bwhere\b|place|venue|room|hall/.test(l))want.push('Place','Hotel');
+  if(/flight/.test(l))want.push('Flight','Time','Date');
+  if(want.length){const k2=keys.filter(k=>want.includes(k));if(k2.length)keys=k2}
+  keys=keys.slice(0,4);
+  const full=memFull(),sl=memSlimm();
+  if(!keys.length){bot('I have the <b>'+esc(topic)+'</b> topic, but no labelled fact answers that.','scope: you + '+topic+' · '+matched+' boxes checked');return}
+  S.msgs.push({r:'e',kind:'answer',topic,facts:keys.map(k=>[k,T.facts[k]]),
+    trace:(S.mode==='slimm'?'scope: you + '+topic+' · matched '+matched+' of '+S.chunks.length+' chunks · newest wins · vault skipped':'full cache · attended over all '+totalTokens().toLocaleString()+' tokens'),
+    recall:topic==='DBMS exam'?{full,sl}:null});
+  lit(['q','scope','match','answer','gpu'],[['Scope','This user + '+topic+' only'],['Match','Max 4 boxes, newest wins: '+keys.join(', ')],['Restore',restored?restored+' box'+(restored>1?'es':'')+' moved up a tier':'already hot'],['Answer','Only what was asked']]);
+  addLog('fetch '+topic+': '+keys.join(', ')+(restored?' · '+restored+' restored up':''));
+}
+
+function addRulebook(){
+  if(S.common.length){toast('The rulebook is already in the common store');return}
+  S.t+=1;
+  const d={id:id(),name:'Techfest Perceptron rulebook.pdf',tokens:4000,users:SHARED_USERS,hash:hash('rulebook')};
+  S.common.push(d);ensureTopic('Hackathon').facts.Rulebook='v2, 4,000 tokens';
+  S.msgs.push({r:'u',text:'[pasted] Techfest Perceptron rulebook (4,000 tokens)',tags:[['cloud','Common store'],['ai','Hackathon'],['','same text, '+SHARED_USERS+' users']]});
+  const kv=M().kv;
+  S.msgs.push({r:'e',kind:'common',d});
+  bot('This rulebook is already in the common store, shared with '+(SHARED_USERS-1)+' other teams, so I linked to that copy instead of caching it again.','hash '+d.hash+' matched · stored once, boxed 2-bit · your share '+fmtMB(d.tokens*kv/8/d.users));
+  lit(['chatin','mainpoints','sorter','common','smart'],[['File','Long document, hashed'],['Sorter','Same text as other users, so it goes to the common store'],['Store','One boxed copy shared by '+SHARED_USERS+' users; duplicates merged']]);
+  addLog('common store: rulebook linked (dedup across '+SHARED_USERS+' users)');S.tab='memory';
+}
+
+function addMedia(kind,file){
+  S.t+=1;
+  let md;
+  if(file){
+    const isV=/^video/.test(file.type);
+    const ratio=isV?0.42:0.71;
+    md={id:id(),topic:'Goa trip',name:file.name,kind:isV?'video':'photo',orig:file.size,comp:file.size*ratio,fmt:isV?'H.265 / AV1':'lossless AVIF',caption:(isV?'Video':'Photo')+' you attached',src:isV?null:URL.createObjectURL(file)};
+  } else if(kind==='video'){
+    md={id:id(),topic:'Goa trip',name:'trip-reel.mp4',kind:'video',orig:62*1048576,comp:24.5*1048576,fmt:'H.265 / AV1',caption:'38 s reel from the Goa trip',src:null};
+  } else {
+    md={id:id(),topic:'Goa trip',name:'fort-aguada.jpg',kind:'photo',orig:5.6*1048576,comp:3.9*1048576,fmt:'lossless AVIF',caption:'Fort Aguada lighthouse at noon',src:null};
+  }
+  ensureTopic(md.topic);S.media.push(md);
+  S.msgs.push({r:'e',kind:'media',mid:md.id});
+  bot('Compressed and stored in '+REGION+'. The GPU keeps only a caption and thumbnail. Ask me for "the trip '+md.kind+'" and I\'ll fetch the exact file.','AI compressor · '+md.fmt+' · '+fmtMB(md.orig)+' → '+fmtMB(md.comp)+(file?' (estimate)':'')+' · GPU note 3 KB');
+  lit(['media','compressor','cloudmedia','note'],[['Compress',md.fmt+(md.kind==='photo'?', pixel-perfect':', same look')],['Cloud','Stored in '+REGION],['GPU','Caption + thumbnail, a few KB']]);
+  addLog('media: '+md.name+' '+fmtMB(md.orig)+' → '+fmtMB(md.comp));
+  $('#mediaMenu').hidden=true;
+}
+
+function passTime(){
+  S.t+=60;let moved=0;
+  for(const c of S.chunks){
+    if(c.kind!=='box'||c.pinned||(S.topics[c.topic]&&S.topics[c.topic].locked))continue;
+    if(S.t-c.used>30){const nx={gpu:'ram',ram:'disk',disk:'cloud'}[c.tier];if(nx){c.tier=nx;moved++}}
+  }
+  Object.values(S.topics).forEach(t=>{if(!t.locked){t.snaps++;t.hash=hash(t.name+S.t)}});
+  addLog('1 h idle → snapshot taken, '+moved+' box'+(moved===1?'':'es')+' squeezed one step · hash check ok');
+  lit(['gpu','ram','disk','cloud','smart','safety'],[['Smart compression','Ignored boxes squeezed one step'],['Safety net','Snapshot before every squeeze; hashes checked']]);
+  toast(moved?moved+' ignored box'+(moved===1?'':'es')+' squeezed down one tier':'Nothing idle enough to squeeze');
+  render();flash('.ladder');
+}
+
+/* ---------- rendering ---------- */
+function render(){renderTop();renderChat();renderTabs();renderDash();renderSteps()}
+function renderTop(){
+  const f=memFull(),s=memSlimm();
+  $('#pillstat').innerHTML='<span>KV cache</span><b class="r">'+fmtMB(s)+'</b><span>vs full</span><b>'+fmtMB(f)+'</b><span>'+Math.round(s/f*100)+'%</span>';
+  $('#chatmeta').textContent=M().name+' · '+totalTokens().toLocaleString()+' tokens · '+clock();
+  $('#m-slimm').setAttribute('aria-pressed',S.mode==='slimm');$('#m-full').setAttribute('aria-pressed',S.mode==='full');
+  $('#model').value=S.model;
+}
+function tagHTML(t){return '<span class="tag '+t[0]+'">'+esc(t[1])+'</span>'}
+function renderChat(){
+  const out=['<div class="earlier">'+S.earlier.toLocaleString()+' earlier tokens filed into topics</div>'];
+  for(const m of S.msgs){
+    if(m.r==='u')out.push('<div class="msg u"><div class="bub">'+esc(m.text)+'</div>'+(m.tags&&m.tags.length?'<div class="tags">'+m.tags.map(tagHTML).join('')+'</div>':'')+'</div>');
+    else if(m.r==='b')out.push('<div class="msg b"><span class="who">Chunky Slimm</span><div class="bub">'+m.html+'</div>'+(m.trace?'<div class="trace">'+esc(m.trace)+'</div>':'')+'</div>');
+    else out.push('<div class="evt">'+evtHTML(m)+'</div>');
+  }
+  const feed=$('#feed');feed.innerHTML=out.join('');feed.scrollTop=feed.scrollHeight;
+}
+function evtHTML(m){
+  if(m.kind==='media'){
+    const md=S.media.find(x=>x.id===m.mid);
+    if(!md||m.gone)return '<div class="card"><span class="trace">media removed by /forget</span></div>';
+    return '<div class="card cloudc"><div class="klabel"><span class="dot" style="background:var(--cloud)"></span>AI compressor · '+esc(md.kind)+'</div>'+
+      '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap"><div class="thumb small'+(md.kind==='video'?' vid':'')+'">'+(md.src?'<img alt="" src="'+md.src+'">':'')+'</div>'+
+      '<div style="display:flex;flex-direction:column;gap:3px;min-width:0"><b>'+esc(md.name)+'</b><span class="trace">'+fmtMB(md.orig)+' → <b>'+fmtMB(md.comp)+'</b> · '+esc(md.fmt)+'</span><span class="trace">GPU note: "'+esc(md.caption)+'" + thumbnail, 3 KB</span></div></div></div>';
+  }
+  if(m.kind==='fetchmedia'){
+    const md=S.media.find(x=>x.id===m.mid);if(!md)return '';
+    return '<div class="card cloudc"><div class="klabel"><span class="dot" style="background:var(--cloud)"></span>Fetched for this turn</div><div class="thumb'+(md.kind==='video'?' vid':'')+'">'+(md.src?'<img alt="" src="'+md.src+'">':'')+'</div><b>'+esc(md.name)+'</b><span class="trace">exact file from '+REGION+' · decoded back to normal form · '+(md.kind==='photo'?'pixel-perfect':'same look')+' · GPU drops it after this turn</span></div>';
+  }
+  if(m.kind==='vault'){
+    const v=S.vault.find(x=>x.id===m.vid);
+    return '<div class="card vaultc"><div class="klabel" style="color:#ff8a9a"><span class="dot" style="background:var(--vault)"></span>Private vault · AI walled off</div><h4>I can\'t see your '+esc(v?v.label.toLowerCase():'sealed item')+'.</h4><span style="font-size:13px;color:var(--muted)">It was sealed, so it never entered my cache and I can\'t search the vault. Open it yourself in the Vault tab with your key.</span><span class="trace">sealed tokens in cache: 0 · vault searched: no</span></div>';
+  }
+  if(m.kind==='common'){
+    const kv=M().kv,d=m.d;
+    return '<div class="card cloudc"><div class="klabel"><span class="dot" style="background:var(--cloud)"></span>Common store · '+esc(d.name)+'</div><div class="recall">'+
+      '<span>100 separate copies</span><span class="trace">full cache, every user</span><span class="m">'+fmtMB(d.tokens*kv*d.users)+'</span>'+
+      '<span>Stored once</span><span class="trace">fp16, shared</span><span class="m">'+fmtMB(d.tokens*kv)+'</span>'+
+      '<span><b>Stored once, boxed</b></span><span class="trace">2-bit, shared</span><span class="m" style="color:var(--fg)">'+fmtMB(d.tokens*kv/8)+'</span></div></div>';
+  }
+  if(m.kind==='answer'){
+    let h='<div class="card hotc"><div class="klabel"><span class="dot" style="background:var(--hot)"></span>Pinpoint answer</div><h4>'+esc(m.topic)+'</h4><ul class="facts">'+m.facts.map(f=>'<li><span>'+esc(f[0])+'</span>'+esc(f[1])+'</li>').join('')+'</ul><span class="trace">'+esc(m.trace)+'</span>';
+    if(m.recall){
+      const r=m.recall;
+      h+='<div style="border-top:1px solid var(--line-soft);margin-top:4px;padding-top:8px;display:flex;flex-direction:column;gap:6px"><div class="klabel">Same question, other caches · simulated</div><div class="recall">'+
+      '<span class="ic y">✓</span><span>Full cache: Nov 3, Hall B-204</span><span class="m">'+fmtMB(r.full)+'</span>'+
+      '<span class="ic y">✓</span><span><b>Chunky Slimm: Nov 3, Hall B-204</b></span><span class="m" style="color:var(--hot)">'+fmtMB(r.sl)+'</span>'+
+      '<span class="ic p">½</span><span>H2O at same memory: date kept, hall lost</span><span class="m">'+fmtMB(r.sl)+'</span>'+
+      '<span class="ic n">✕</span><span>StreamingLLM at same memory: fell out of the window</span><span class="m">'+fmtMB(r.sl)+'</span></div>'+
+      '<span class="note">Illustrates the expected behaviour. Real recall numbers come from the needle-in-a-haystack eval.</span></div>';
+    }
+    return h+'</div>';
+  }
+  return '';
+}
+
+const TABS=[['memory','Memory'],['topics','Topics & boxes'],['storage','Storage'],['vault','Vault'],['pipeline','Pipeline'],['compare','Compare']];
+function renderTabs(){
+  const counts={topics:Object.keys(S.topics).length,vault:S.vault.length};
+  $('#tabs').innerHTML=TABS.map(([k,n])=>'<button class="tab" role="tab" data-tab="'+k+'" aria-selected="'+(S.tab===k)+'">'+n+(counts[k]!=null?'<span class="cnt">'+counts[k]+'</span>':'')+'</button>').join('');
+}
+function renderDash(){
+  const d=$('#dash');
+  d.innerHTML={memory:dMemory,topics:dTopics,storage:dStorage,vault:dVault,pipeline:dPipeline,compare:dCompare}[S.tab]();
+}
+
+function dMemory(){
+  const f=memFull(),s=memSlimm(),kv=M().kv,sh=shares();
+  const pct=s/f*100;
+  const chat16=16384*kv, freeB=M().freeGB*1073741824;
+  const fullChats=Math.floor(freeB/chat16), slimChats=Math.floor(freeB/(chat16*s/f));
+  const tot=Object.values(sh).reduce((a,b)=>a+b,0)||1;
+  const pinB=sh.pinned*kv,gwB=sh.gateway*kv,bxB=sh.box*kv/8,cmB=S.common.reduce((a,d)=>a+d.tokens*kv/8/d.users,0);
+  const seg=(v,c,lbl)=>'<div title="'+lbl+'" style="flex-grow:'+v+';background:'+c+'"></div>';
+  return '<div class="sec"><h3>GPU memory for this chat<span class="x">'+esc(M().name)+' · '+(kv/1024)+' KB per token</span></h3>'+
+  '<div class="grid2"><div class="box '+(S.mode==='slimm'?'on':'')+'"><div class="klabel"><span class="dot" style="background:var(--hot)"></span>Chunky Slimm</div><div class="big">'+fmtMB(s)+'</div><div class="meter"><i style="width:'+pct.toFixed(1)+'%"></i></div><div class="subline">'+pct.toFixed(1)+'% of the full cache</div></div>'+
+  '<div class="box '+(S.mode==='full'?'on onfull':'')+'"><div class="klabel"><span class="dot" style="background:var(--faint)"></span>Full cache</div><div class="big">'+fmtMB(f)+'</div><div class="meter grey"><i style="width:100%"></i></div><div class="subline">'+totalTokens().toLocaleString()+' tokens, all fp16</div></div></div></div>'+
+  '<div class="sec"><h3>Where the tokens went</h3><div class="stack">'+seg(sh.pinned,'var(--hot)','Pinned')+seg(sh.gateway,'#ff7a86','Gateways')+seg(sh.box,'var(--ai)','Boxes')+seg(sh.cold,'#7a6a52','Cold boxes')+seg(sh.common,'var(--cloud)','Common store')+seg(sh.filler,'var(--line)','Filler')+'</div>'+
+  '<div class="legend"><span><i class="dot" style="background:var(--hot)"></i>Pinned</span><span><i class="dot" style="background:#ff7a86"></i>Gateways</span><span><i class="dot" style="background:var(--ai)"></i>Boxes</span><span><i class="dot" style="background:#7a6a52"></i>Off GPU (disk, cloud)</span><span><i class="dot" style="background:var(--cloud)"></i>Common store</span><span><i class="dot" style="background:var(--line)"></i>Filler</span></div>'+
+  '<div class="tbl-wrap"><table><thead><tr><th>Tier</th><th class="n">Tokens</th><th class="n">Share</th><th>Kept as</th><th class="n">Memory</th></tr></thead><tbody>'+
+  row('Pinned',sh.pinned,tot,'Full precision (fp16)',pinB)+row('Gateways',sh.gateway,tot,'Full precision (fp16)',gwB)+row('Boxes',sh.box,tot,'2-bit compression',bxB)+
+  row('Off GPU',sh.cold,tot,'Main points on disk / cloud',0)+row('Common store',sh.common,tot,'Boxed once, '+SHARED_USERS+' users',cmB)+row('Removed filler',sh.filler,tot,'Removed',0)+
+  (S.media.length?row('Media notes',0,tot,S.media.length+' × caption + thumbnail',S.media.length*3072):'')+
+  (S.vault.length?row('Vault',0,tot,'Outside the cache',0):'')+
+  '<tr class="tot"><td>Total</td><td class="n">'+tot.toLocaleString()+'</td><td></td><td></td><td class="n">'+fmtMB(s)+' ('+Math.round(pct)+'%)</td></tr></tbody></table></div></div>'+
+  '<div class="sec"><h3>Chats one T4 can hold<span class="x">16K-token chats, '+M().freeGB+' GB free after weights</span></h3><div class="cap">'+
+  '<span>Full cache</span><div class="bar"><i style="width:'+Math.min(100,fullChats/Math.max(slimChats,1)*100)+'%;background:var(--faint)"></i></div><span class="v">'+fullChats+'</span>'+
+  '<span style="color:var(--hot)">Chunky Slimm</span><div class="bar"><i style="width:100%;background:var(--hot)"></i></div><span class="v">'+slimChats+'</span></div>'+
+  '<p class="note" style="margin:0">Planning estimates from the abstract, scaled by this chat\'s live ratio. They still need to be measured.</p></div>';
+  function row(n,t,tot,k,b){return '<tr><td>'+n+'</td><td class="n">'+t.toLocaleString()+'</td><td class="n">'+(t?Math.round(t/tot*100)+'%':'–')+'</td><td style="color:var(--muted)">'+k+'</td><td class="n">'+fmtMB(b)+'</td></tr>'}
+}
+
+function dTopics(){
+  const names=Object.keys(S.topics);
+  if(!names.length)return '<div class="empty">No topics yet. Send a message with a date or place and a topic gateway appears here.</div>';
+  return '<div class="sec"><h3>Topic gateways<span class="x">'+S.chunks.length+' chunks</span></h3><p class="note" style="margin:0">Each topic has a gateway that holds its labelled facts in full detail. Everything else is boxed and moves between tiers by how often you ask about it.</p></div>'+
+  names.map(n=>{
+    const T=S.topics[n],cs=S.chunks.filter(c=>c.topic===n),md=S.media.filter(m=>m.topic===n);
+    const facts=Object.entries(T.facts);
+    return '<div class="topic'+(T.locked?' locked':'')+'"><div class="th"><h4>'+esc(n)+'</h4>'+(T.locked?'<span class="tag ai">Locked</span>':'')+(T.pinned?'<span class="tag hot">Pinned</span>':'')+
+    '<span class="trace">'+cs.length+' chunks'+(md.length?' · '+md.length+' media':'')+'</span>'+
+    '<div class="acts">'+(n==='General'?'':'<button class="btn sm" data-act="'+(T.locked?'unlock':'lock')+'" data-topic="'+esc(n)+'">'+(T.locked?'Unlock':'Lock')+'</button><button class="btn sm danger" data-act="forget" data-topic="'+esc(n)+'">Forget</button>')+'</div></div>'+
+    (facts.length?'<div class="gate">'+facts.map(([k,v])=>'<span class="fact"><span>'+esc(k)+'</span> '+esc(v)+'</span>').join('')+'</div>':'')+
+    '<div class="chunks">'+cs.map(c=>{
+      const k=c.pinned||c.kind==='pinned'?['hot','pinned']:c.kind==='gateway'?['hot','gateway']:c.kind==='filler'?['drop','filler']:['ai','box'];
+      const tierCls={gpu:'hot',ram:'ai',disk:'',cloud:'cloud',dropped:'drop'}[c.tier];
+      return '<div class="ck"><span class="tag '+k[0]+'">'+k[1]+'</span><span class="t" title="'+esc(c.text)+'">'+esc(c.text)+'</span><span class="tag '+tierCls+'">'+(c.tier==='dropped'?'removed':c.tier.toUpperCase())+'</span><span class="tk">'+c.tokens.toLocaleString()+' tok</span></div>';
+    }).join('')+'</div></div>';
+  }).join('');
+}
+
+function dStorage(){
+  const kv=M().kv;
+  const by=t=>S.chunks.filter(c=>c.tier===t);
+  const g=by('gpu'),r=by('ram'),dk=by('disk'),cl=by('cloud');
+  const sum=a=>a.reduce((x,c)=>x+c.tokens,0);
+  const gB=g.reduce((x,c)=>x+(c.kind==='box'&&!c.pinned?c.tokens*kv/8:c.tokens*kv),0);
+  return '<div class="sec"><h3><span class="no">2</span>Store by usage, in your nearest region<span class="x">'+REGION+'</span></h3>'+
+  '<div class="ladder">'+
+  '<div class="rung gpu"><span class="nm">GPU</span><span class="d">'+g.length+' chunks · pinned, gateways, open boxes · full detail</span><span class="v">'+fmtMB(gB)+'</span></div>'+
+  '<div class="rung ram"><span class="nm">RAM</span><span class="d">'+r.length+' warm boxes · 2-bit</span><span class="v">'+fmtMB(sum(r)*kv/8)+'</span></div>'+
+  '<div class="rung disk"><span class="nm">Disk</span><span class="d">'+dk.length+' idle boxes · main points only</span><span class="v">'+sum(dk).toLocaleString()+' tok</span></div>'+
+  '<div class="rung cloud"><span class="nm">Cloud</span><span class="d">'+cl.length+' cold boxes as text · '+S.media.length+' media · '+Object.keys(S.topics).length+' backups</span><span class="v">'+fmtMB(S.media.reduce((a,m)=>a+m.comp,0))+'</span></div></div>'+
+  '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><button class="btn" id="passTime">Let 1 hour pass</button><span class="note">Ignored boxes squeeze down one tier. Asking about a topic restores its boxes up.</span></div></div>'+
+  '<div class="grid2"><div class="box"><div class="klabel">Smart compression</div><ul class="facts" style="margin-top:6px;font-size:13px"><li>Asked often: kept in full detail</li><li>Ignored: squeezed one step</li><li>Duplicates merged ('+S.common.length+' shared doc'+(S.common.length===1?'':'s')+')</li></ul></div>'+
+  '<div class="box"><div class="klabel">Safety net</div><ul class="facts" style="margin-top:6px;font-size:13px"><li>Snapshot before every squeeze</li><li>Hash check on every read</li><li>Repair from backup</li></ul></div></div>'+
+  '<div class="sec"><h3>Backups per topic</h3><div class="tbl-wrap"><table><thead><tr><th>Topic</th><th class="n">Snapshots</th><th>Last hash</th><th>Status</th></tr></thead><tbody>'+
+  Object.values(S.topics).map(t=>'<tr><td>'+esc(t.name)+'</td><td class="n">'+t.snaps+'</td><td class="mono" style="color:var(--muted)">'+t.hash+'</td><td><span class="tag ok">verified</span></td></tr>').join('')+
+  '</tbody></table></div></div>'+
+  '<div class="sec"><h3>Activity</h3><div class="log">'+S.log.map(l=>'<div><span class="tm">'+l.tm+'</span><span>'+esc(l.s)+'</span></div>').join('')+'</div></div>';
+}
+
+function dVault(){
+  const open=Date.now()<S.unlockedUntil;
+  const kv=M().kv,vt=S.vault.reduce((a,v)=>a+v.tokens,0);
+  return '<div class="sec"><h3>Private vault<span class="x">paid add-on</span></h3><p class="note" style="margin:0">Sealed items are encrypted with your own key and kept outside the model. The AI can\'t search, read or cache them.</p></div>'+
+  '<div class="grid2"><div class="box on"><div class="klabel">Sealed tokens in the cache</div><div class="big">0</div><div class="subline">Chunky Slimm keeps the vault walled off</div></div>'+
+  '<div class="box"><div class="klabel">In a full cache</div><div class="big">'+vt+'<small>tokens</small></div><div class="subline">'+(vt?'would sit in GPU memory as plain text ('+fmtMB(vt*kv)+')':'nothing sealed yet')+'</div></div></div>'+
+  (S.vault.length?'<div class="sec">'+S.vault.map(v=>'<div class="vitem"><span class="lock"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span><div style="display:flex;flex-direction:column;min-width:0;flex:1"><span class="l">'+esc(v.label)+'</span><span class="when">sealed at '+v.at+'</span></div><span class="s">'+(open?esc(v.secret):'••••••••')+'</span></div>').join('')+
+  '<form class="keyrow" id="keyform"><input id="vkey" type="password" placeholder="Your key (demo key: xerxes)" autocomplete="off"><button class="btn primary" type="submit">'+(open?'Lock again':'Open vault')+'</button></form></div>'
+  :'<div class="empty">Nothing sealed yet. Type <span class="mono" style="color:var(--ai)">/seal Locker code: 4417-28</span> in the chat.</div>');
+}
+
+function dPipeline(){
+  const L=S.trace?S.trace.nodes:new Set();
+  const N=(k,t,s,c)=>'<div class="node '+c+(L.has(k)?' lit':'')+'"><b>'+t+'</b><span>'+s+'</span></div>';
+  const A='<span class="arrow">›</span>';
+  return '<div class="sec"><h3>Last event</h3>'+(S.trace?'<div class="tracebox">'+S.trace.steps.map(s=>'<div><b>'+esc(s[0])+'</b> · '+esc(s[1])+'</div>').join('')+'</div>':'<p class="note">Send a message to see it move through the pipeline.</p>')+'</div>'+
+  '<div class="pipe">'+
+  '<div class="sec"><h3><span class="no">1</span>File · every message is broken down and sorted</h3><div class="prow">'+N('chatin','Chat in','new message','n')+A+N('mainpoints','Main points','labelled facts','h')+A+N('sorter','AI sorter','attention + MiniLM','a')+A+N('vault','Private vault','your key; AI walled off','v')+'</div>'+
+  '<div class="prow">'+N('hot','Keep hot','needed now','h')+N('box','Box it','useful later','n')+N('common','Common store','same text, many users','c')+N('unclear','Unclear text','fetch if useful','n')+N('filler','Filler','dropped','d')+'</div></div>'+
+  '<div class="sec"><h3><span class="no">2</span>Store · by usage</h3><div class="prow">'+N('gpu','GPU','~19% of cache, full detail','h')+N('ram','RAM','warm boxes, 2-bit','a')+N('disk','Disk','idle, main points','n')+N('cloud','Cloud','text, backups, media','c')+'</div><div class="prow">'+N('smart','Smart compression','squeeze ignored, keep asked','a')+N('safety','Safety net','snapshot, hash, repair','n')+'</div></div>'+
+  '<div class="sec"><h3><span class="no">3</span>Compress · photos and videos</h3><div class="prow">'+N('media','Photo / video in','','n')+A+N('compressor','AI compressor','WebP/AVIF · H.265/AV1','a')+A+N('cloudmedia','Cloud','nearest region','c')+A+N('note','GPU keeps a note','caption + thumbnail','h')+'</div>'+
+  '<div class="prow">'+N('asked','Asked about it','"the trip photo"','n')+A+N('fetchfile','Fetch exact file','nearest server','n')+A+N('decode','Decode','back to normal form','n')+A+N('sees','Model sees it','this turn only','h')+'</div></div>'+
+  '<div class="sec"><h3><span class="no">4</span>Fetch · pinpoint answers</h3><div class="prow">'+N('q','Question','','n')+A+N('scope','Scope','this user + topic only','a')+A+N('match','Match facts','max 4 boxes, newest wins','a')+A+N('answer','Answer','only what was asked','h')+'</div></div>'+
+  '</div>';
+}
+
+function dCompare(){
+  const Y='<span class="ic y">✓</span>',P='<span class="ic p">½</span>',X='<span class="ic n">✕</span>';
+  const cols=['Shrinks GPU cache','Keeps key tokens','Recovers old facts','Main points','Shared data once','Cloud-first storage','Usage-based compression','Pinpoint answers','Private vault','Compressed media'];
+  const rows=[['StreamingLLM',[Y,P,X,X,X,X,X,X,X,X]],['H2O',[Y,Y,X,X,X,X,X,X,X,X]],['SnapKV',[Y,Y,X,X,X,X,X,P,X,X]],['Chunky Slimm',Array(10).fill(Y)]];
+  const pct=memSlimm()/memFull()*100;
+  const T=(t,s,cls)=>'<div class="target"><span>'+t+'</span><span class="tag '+cls+'">'+s+'</span></div>';
+  const bar=(lbl,v,max,c,txt)=>'<span>'+lbl+'</span><div class="bar"><i style="width:'+(v/max*100)+'%;background:'+c+'"></i></div><span class="v">'+txt+'</span>';
+  const lg=v=>Math.log10(v);
+  return '<div class="sec"><h3>Chunky Slimm vs StreamingLLM, H2O and SnapKV</h3><div class="tbl-wrap"><table class="cmp"><thead><tr><th></th>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>'+
+  rows.map(r=>'<tr'+(r[0]==='Chunky Slimm'?' class="us"':'')+'><td>'+r[0]+'</td>'+r[1].map(x=>'<td>'+x+'</td>').join('')+'</tr>').join('')+'</tbody></table></div></div>'+
+  '<div class="sec"><h3>Plan estimates<span class="x">from the abstract, not yet measured</span></h3><div class="cap">'+
+  bar('1B full cache',22,113,'var(--faint)','22 chats')+bar('1B Chunky Slimm',113,113,'var(--hot)','113 chats')+bar('3B full cache',4,113,'var(--faint)','4 chats')+bar('3B Chunky Slimm',20,113,'var(--hot)','20 chats')+'</div>'+
+  '<div class="klabel" style="margin-top:6px">100 copies of a 4,000-token rulebook · log scale</div><div class="cap">'+
+  bar('Separate copies',lg(12800),lg(12800),'var(--faint)','12.5 GB')+bar('Stored once',lg(125),lg(12800),'var(--cloud)','125 MB')+bar('Stored once, boxed',lg(30),lg(12800),'var(--hot)','25–35 MB')+'</div></div>'+
+  '<div class="sec"><h3>Success targets</h3><div>'+
+  T('About 20% of full-cache memory','this demo: '+pct.toFixed(0)+'%',pct<=22?'ok':'ai')+
+  T('Needle recall within 5 points of full cache, 4K–32K','not measured','')+
+  T('Better recall than baselines at equal memory','not measured','')+
+  T('Less than 10–15% slowdown','not measured','')+
+  T('Zero sealed items in cached tokens','this demo: '+0,'ok')+
+  T('Exact output match at 100% budget','not measured','')+'</div></div>'+
+  '<div class="sec"><h3>Build plan</h3><div class="weeks">'+
+  [['W1','Load Llama 1B, measure full cache, run needle test','Baseline recorded'],['W2','StreamingLLM, H2O, SnapKV at 50 / 25 / 10%','Baselines compared'],['W3','Chunks, scoring, 2-bit boxes, custom cache','Beat H2O at equal memory'],['W4','Privacy, topics, shared store, backups, Gradio','Demo runs end to end']]
+  .map(w=>'<div class="wk"><b>'+w[0]+'</b>'+w[1]+'<em>'+w[2]+'</em></div>').join('')+'</div></div>';
+}
+
+function flash(sel){const e=$(sel);if(!e)return;e.classList.remove('flash');void e.offsetWidth;e.classList.add('flash')}
+function toast(s){const t=$('#toast');t.textContent=s;t.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('show'),2600)}
+
+/* ---------- guided demo ---------- */
+const STEPS=[
+  {t:'Seal a code, mention the exam',run:async()=>{await typeSend('/seal Locker code: 4417-28');await sleep(700);await typeSend('My DBMS exam is on Nov 3 at 10 AM in Hall B-204.');S.tab='topics'}},
+  {t:'Paste a long document',run:async()=>{addRulebook();render();await sleep(200)}},
+  {t:'Ask for the exam date',run:async()=>{await typeSend('When and where is my DBMS exam?');S.tab='memory'}},
+  {t:'Ask for the sealed code',run:async()=>{await typeSend("What's my locker code?")}},
+  {t:'Forget the trip',run:async()=>{await typeSend('/forget Goa trip')}},
+  {t:'Compare results',run:async()=>{S.tab='compare'}}
+];
+async function typeSend(txt){
+  const i=$('#input');i.value='';
+  for(let k=0;k<txt.length;k+=2){i.value=txt.slice(0,k+2);await sleep(14)}
+  await sleep(250);i.value='';handle(txt);render();await sleep(450);
+}
+function renderSteps(){
+  $('#steps').innerHTML=STEPS.map((s,i)=>'<div class="step '+(i<S.step?'done':i===S.step?'now':'')+'"><span class="n">'+(i<S.step?'✓':i+1)+'</span>'+s.t+'</div>').join('');
+  const b=$('#next');
+  b.textContent=S.step>=STEPS.length?'Demo done':'Run step '+(S.step+1);
+  b.disabled=S.running||S.step>=STEPS.length;
+  const now=$('#steps .now');if(now)now.scrollIntoView({block:'nearest',inline:'nearest'});
+}
+async function nextStep(){
+  if(S.running||S.step>=STEPS.length)return;
+  S.running=true;renderSteps();
+  try{await STEPS[S.step].run()}finally{S.step++;S.running=false;render()}
+}
+
+/* ---------- events ---------- */
+$('#form').addEventListener('submit',e=>{e.preventDefault();const v=$('#input').value;$('#input').value='';handle(v);render()});
+$('#chips').addEventListener('click',e=>{const b=e.target.closest('[data-fill]');if(!b)return;const i=$('#input');i.value=b.dataset.fill;i.focus()});
+$('#mediaBtn').addEventListener('click',()=>{$('#mediaMenu').hidden=!$('#mediaMenu').hidden});
+$('#sPhoto').addEventListener('click',()=>{addMedia('photo');render()});
+$('#sVideo').addEventListener('click',()=>{addMedia('video');render()});
+$('#file').addEventListener('change',e=>{const f=e.target.files[0];if(f){addMedia(null,f);render()}e.target.value=''});
+$('#rulebookBtn').addEventListener('click',()=>{addRulebook();render()});
+$('#tabs').addEventListener('click',e=>{const b=e.target.closest('[data-tab]');if(!b)return;S.tab=b.dataset.tab;renderTabs();renderDash()});
+document.querySelectorAll('.seg button').forEach(b=>b.addEventListener('click',()=>{S.mode=b.dataset.mode;toast(S.mode==='slimm'?'Chunky Slimm on: chunked, boxed, vault walled off':'Full cache: every token kept in fp16, for comparison');render()}));
+$('#model').addEventListener('change',e=>{S.model=e.target.value;render()});
+$('#next').addEventListener('click',nextStep);
+$('#reset').addEventListener('click',()=>{if(S.running)return;seed();render();toast('Chat reset')});
+$('#dash').addEventListener('click',e=>{
+  if(e.target.id==='passTime'){passTime();return}
+  const a=e.target.closest('[data-act]');if(!a)return;
+  handle('/'+a.dataset.act+' '+a.dataset.topic);render();
+});
+$('#dash').addEventListener('submit',e=>{
+  if(e.target.id!=='keyform')return;e.preventDefault();
+  if(Date.now()<S.unlockedUntil){S.unlockedUntil=0;renderDash();return}
+  if($('#vkey').value.trim()===VAULT_KEY){S.unlockedUntil=Date.now()+20000;addLog('vault opened by you (20 s)');renderDash();toast('Vault open for 20 seconds. The AI still can\'t see it.');setTimeout(()=>{if(S.tab==='vault')renderDash()},20100)}
+  else toast('That key doesn\'t open the vault. The demo key is xerxes.');
+});
+
+seed();render();
+})();
+</script>

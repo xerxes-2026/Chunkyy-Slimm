@@ -22,7 +22,7 @@ This repo holds a clickable web prototype of the experience.
 - **Compare view** against StreamingLLM, H2O and SnapKV
 - **AI compressor** step for photo and video attachments
 
-## 🚀 Quick start
+##  Quick start
 
 No install or build needed.
 
@@ -34,16 +34,6 @@ open index.html   # or just double-click it
 
 Works offline in Chrome, Edge, Firefox and Safari.
 
-## 🎬 3-minute demo
-
-Press **Run step** to walk through:
-
-1. Seal a locker code and mention the exam date
-2. Paste the shared rulebook
-3. Ask for the exam date and compare recall
-4. Ask for the sealed code
-5. Run `/forget Goa trip`
-6. Compare results
 
 
 ## 📁 Project structure
